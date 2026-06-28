@@ -2,7 +2,7 @@
 
 **DeathByAI** is a premium, AI-powered bias auditing tool designed to ensure fairness in prediction models. Built with Streamlit and modern data visualization libraries, it allows users to upload datasets, detect demographic bias, and compute an overall fairness score.
 
-![DeathByAI-Preview](https://raw.githubusercontent.com/VanshJasuja-1602/deadthByAI/main/assets/preview.png) *(Note: Add your preview image here)*
+
 
 ## 🚀 Features
 
