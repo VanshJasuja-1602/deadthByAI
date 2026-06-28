@@ -10,7 +10,7 @@ import numpy as np
 # Page config
 # ---------------------------------------------------------------------------
 st.set_page_config(
-    page_title="DeathByAI — Healthcare Bias Auditor",
+    page_title="DeathByAI — Bias Auditor",
     page_icon="⚕️",
     layout="wide",
     initial_sidebar_state="expanded",
@@ -176,6 +176,43 @@ st.markdown(
 
     /* hide default Streamlit footer */
     footer {visibility: hidden;}
+
+    /* ── Footer ────────────────────────────────────────── */
+    .custom-footer {
+        text-align: center;
+        padding: 2.5rem 1rem 1.5rem;
+        margin-top: 5rem;
+        border-top: 1px solid var(--border);
+        background: linear-gradient(180deg, transparent, rgba(18,21,31,0.4));
+    }
+    .custom-footer p {
+        color: var(--text-muted);
+        font-size: 0.95rem;
+        margin-bottom: 0.8rem;
+    }
+    .custom-footer .dev-name {
+        color: var(--accent);
+        font-weight: 700;
+        letter-spacing: 0.02em;
+    }
+    .custom-footer a.btn-dev {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        background: linear-gradient(135deg, var(--accent) 0%, var(--accent2) 100%);
+        color: #0b0d13 !important;
+        font-weight: 700;
+        font-size: 0.88rem;
+        text-decoration: none;
+        padding: 0.6rem 1.4rem;
+        border-radius: 30px;
+        box-shadow: 0 4px 15px rgba(0, 212, 170, 0.25);
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    .custom-footer a.btn-dev:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(0, 212, 170, 0.4);
+    }
     </style>
     """,
     unsafe_allow_html=True,
@@ -188,9 +225,9 @@ st.markdown(
 st.markdown(
     """
     <div class="hero-banner">
-        <h1> DeathByAI — Healthcare Bias Auditor</h1>
+        <h1> DeathByAI — Bias Auditor</h1>
         <p class="subtitle">
-            Upload a healthcare prediction dataset &middot; Detect demographic bias &middot; Ensure model fairness
+            Upload a prediction dataset &middot; Detect demographic bias &middot; Ensure model fairness
         </p>
     </div>
     """,
@@ -208,20 +245,7 @@ with st.sidebar:
         type=["csv"],
         help="Upload a CSV with at least one prediction column and one demographic column.",
     )
-    st.markdown("---")
-    st.markdown(
-        "**Example CSV format:**\n"
-        "```\n"
-        "age,gender,income_group,prediction\n"
-        "65,M,Low,1\n"
-        "42,F,Medium,0\n"
-        "71,M,High,1\n"
-        "56,F,Low,0\n"
-        "60,M,Medium,1\n"
-        "48,F,Low,0\n"
-        "```"
-    )
-    st.markdown("---")
+
     
 
 
@@ -310,8 +334,34 @@ if uploaded_file is not None:
         st.stop()
 
     # ── 3. Bias Detection Logic ────────────────────────────────────────────
+    # Handle high-cardinality sensitive columns (e.g. > 20 unique values)
+    num_unique = df[sensitive_col].nunique()
+    working_sensitive_col = sensitive_col
+    
+    if num_unique > 20:
+        is_numeric = pd.api.types.is_numeric_dtype(df[sensitive_col])
+        if is_numeric:
+            try:
+                # Attempt quantile binning
+                df['binned_sensitive'] = pd.qcut(df[sensitive_col], q=5, duplicates='drop').astype(str)
+                working_sensitive_col = 'binned_sensitive'
+                st.warning(f"ℹ️ `{sensitive_col}` has {num_unique} unique values. It has been automatically binned into groups for better analysis.")
+            except Exception:
+                try:
+                    df['binned_sensitive'] = pd.cut(df[sensitive_col], bins=5).astype(str)
+                    working_sensitive_col = 'binned_sensitive'
+                    st.warning(f"ℹ️ `{sensitive_col}` has {num_unique} unique values. It has been automatically binned into groups for better analysis.")
+                except Exception:
+                    pass
+        else:
+            # Categorical: keep top 14 most frequent and group the rest
+            top_categories = df[sensitive_col].value_counts().nlargest(14).index
+            df['grouped_sensitive'] = df[sensitive_col].apply(lambda x: x if x in top_categories else 'Other')
+            working_sensitive_col = 'grouped_sensitive'
+            st.warning(f"ℹ️ `{sensitive_col}` has {num_unique} unique categories. The top 14 are shown individually, and the rest are grouped into 'Other'.")
+
     group_rates = (
-        df.groupby(sensitive_col)[prediction_col]
+        df.groupby(working_sensitive_col)[prediction_col]
         .mean()
         .reset_index()
         .rename(columns={prediction_col: "prediction_rate"})
@@ -386,7 +436,7 @@ if uploaded_file is not None:
 
         bar_fig = go.Figure(
             go.Bar(
-                x=group_rates[sensitive_col],
+                x=group_rates[working_sensitive_col],
                 y=group_rates["prediction_rate"],
                 marker_color=bar_colors,
                 marker_line_width=0,
@@ -430,10 +480,12 @@ if uploaded_file is not None:
     with viz_right:
         st.markdown("**Bias Heatmap**")
 
-        heatmap_data = group_rates.set_index(sensitive_col).T
+        heatmap_data = group_rates.set_index(working_sensitive_col).T
 
+        # Cap figure width to prevent DecompressionBombError / memory explosion
+        fig_width = min(15.0, max(5.0, len(group_rates) * 1.4))
         fig_hm, ax_hm = plt.subplots(
-            figsize=(max(5, len(group_rates) * 1.4), 3.2)
+            figsize=(fig_width, 3.2)
         )
         fig_hm.patch.set_facecolor("#12151f")
         ax_hm.set_facecolor("#12151f")
@@ -461,12 +513,13 @@ if uploaded_file is not None:
         plt.tight_layout()
 
         st.pyplot(fig_hm)
+        plt.close(fig_hm)
 
     st.markdown('<hr class="glow-line">', unsafe_allow_html=True)
 
     # ── 6. Fairness Score Panel ────────────────────────────────────────────
     st.markdown(
-        '<div class="section-hdr">🎯 AI Fairness Score</div>',
+        '<div class="section-hdr">Fairness Score</div>',
         unsafe_allow_html=True,
     )
 
@@ -535,7 +588,7 @@ if uploaded_file is not None:
 
     with st.expander("🔍 Detailed Group Breakdown", expanded=False):
         for _, row in group_rates.iterrows():
-            grp = row[sensitive_col]
+            grp = row[working_sensitive_col]
             rate = row["prediction_rate"]
             pct = rate * 100
             bar_html = (
@@ -559,7 +612,7 @@ else:
                 Upload a CSV to begin the audit
             </h3>
             <p style="color:#7f8694; max-width:520px; margin:.8rem auto 0; line-height:1.65;">
-                Use the sidebar to upload a healthcare prediction dataset.<br>
+                Use the sidebar to upload a prediction dataset.<br>
                 The auditor will analyse prediction rates across demographic groups,
                 surface potential bias, and compute a fairness score.
             </p>
@@ -567,3 +620,18 @@ else:
         """,
         unsafe_allow_html=True,
     )
+
+# ═══════════════════════════════════════════════════════════════════════════
+# FOOTER
+# ═══════════════════════════════════════════════════════════════════════════
+st.markdown(
+    """
+    <div class="custom-footer">
+        <p>Created by <span class="dev-name">Vansh Jasuja</span></p>
+        <a href="https://vanshjasuja16.netlify.app/" target="_blank" class="btn-dev">
+            Know About Developer 🚀
+        </a>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)

@@ -1,18 +1,18 @@
-# DeathByAI — Healthcare Bias Auditor ⚕️
+# DeathByAI — Bias Auditor ⚕️
 
-**DeathByAI** is a premium, AI-powered healthcare bias auditing tool designed to ensure fairness in medical prediction models. Built with Streamlit and modern data visualization libraries, it allows users to upload healthcare datasets, detect demographic bias, and compute an overall fairness score.
+**DeathByAI** is a premium, AI-powered bias auditing tool designed to ensure fairness in prediction models. Built with Streamlit and modern data visualization libraries, it allows users to upload datasets, detect demographic bias, and compute an overall fairness score.
 
 ![DeathByAI-Preview](https://raw.githubusercontent.com/VanshJasuja-1602/deadthByAI/main/assets/preview.png) *(Note: Add your preview image here)*
 
 ## 🚀 Features
 
--   **📂 Dataset Auditing**: Upload any CSV dataset containing healthcare predictions.
+-   **📂 Dataset Auditing**: Upload any CSV dataset containing predictions.
 -   **⚙️ Configurable Bias Detection**: Choose specific prediction outputs and sensitive demographic columns (e.g., gender, age group, income) for analysis.
 -   **📊 Real-time Metrics**: Calculate highest/lowest group rates and disparity percentages instantly.
 -   **📈 Advanced Visualizations**:
     -   Interactive Plotly bar charts for prediction rates.
     -   Seaborn heatmaps for deep-dive bias analysis.
--   **🎯 AI Fairness Score**: A proprietary score (0-100) that summarizes the fairness of your model.
+-   **Fairness Score**: A proprietary score (0-100) that summarizes the fairness of your model.
 -   **🔍 Detailed Breakdown**: Granular view of prediction rates across all demographic segments.
 
 ## 🛠️ Tech Stack
@@ -47,7 +47,7 @@
     ```bash
     streamlit run app.py
     ```
-2.  **Upload your data**: Use the sidebar to upload a healthcare CSV file.
+2.  **Upload your data**: Use the sidebar to upload a CSV file.
 3.  **Configure the audit**: Select your prediction column and the sensitive demographic column you want to audit.
 4.  **Review the results**: Check the fairness score and visualizations to identify potential biases.
 
